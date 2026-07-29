@@ -1,12 +1,102 @@
 [
   {
-    "question": "How long is the Acme Widget Model X battery life?",
-    "expected_answer": "12 hours of continuous use.",
-    "relevant_sources": ["sample.md"]
+    "question": "What cosine distance operator does pgvector use?",
+    "expected_answer": "The <=> operator measures cosine distance.",
+    "relevant_sources": ["pgvector_readme.md"]
   },
   {
-    "question": "What is the warranty period for the Acme Widget?",
-    "expected_answer": "Two years from the purchase date for manufacturing defects.",
-    "relevant_sources": ["sample.md"]
+    "question": "How do you compute cosine similarity from pgvector cosine distance?",
+    "expected_answer": "Use 1 - cosine distance (1 - (embedding <=> query)).",
+    "relevant_sources": ["pgvector_readme.md"]
+  },
+  {
+    "question": "What are the tradeoffs of HNSW versus IVFFlat indexes in pgvector?",
+    "expected_answer": "HNSW has better query speed-recall but slower build and more memory; IVFFlat needs a training step and HNSW can be built on an empty table.",
+    "relevant_sources": ["pgvector_readme.md"]
+  },
+  {
+    "question": "Why create a database index on a frequently filtered column?",
+    "expected_answer": "Without an index Postgres may scan the whole table; an index lets it locate matching rows much more efficiently.",
+    "relevant_sources": ["postgres_indexes_intro.md"]
+  },
+  {
+    "question": "What is the default index type created by CREATE INDEX in PostgreSQL?",
+    "expected_answer": "B-tree indexes are created by default.",
+    "relevant_sources": ["postgres_indexes_types.md"]
+  },
+  {
+    "question": "What kind of data are GIN indexes especially appropriate for?",
+    "expected_answer": "GIN inverted indexes suit values with multiple component values, such as arrays.",
+    "relevant_sources": ["postgres_indexes_types.md"]
+  },
+  {
+    "question": "What does a BRIN index store about a table?",
+    "expected_answer": "Summaries about values in consecutive physical block ranges of a table.",
+    "relevant_sources": ["postgres_indexes_types.md"]
+  },
+  {
+    "question": "Can a PostgreSQL index cover more than one column?",
+    "expected_answer": "Yes — multicolumn indexes can be defined on more than one column.",
+    "relevant_sources": ["postgres_indexes_multicolumn.md"]
+  },
+  {
+    "question": "What PostgreSQL types store preprocessed documents and queries for full text search?",
+    "expected_answer": "tsvector for documents and tsquery for queries.",
+    "relevant_sources": ["postgres_textsearch_intro.md"]
+  },
+  {
+    "question": "Which operator checks whether a tsvector matches a tsquery?",
+    "expected_answer": "The match operator @@.",
+    "relevant_sources": ["postgres_textsearch_intro.md"]
+  },
+  {
+    "question": "Why might 'rats' fail to match 'rat' when casting text directly to tsvector?",
+    "expected_answer": "Direct tsvector casts assume already-normalized lexemes, so rats does not match rat without to_tsvector normalization.",
+    "relevant_sources": ["postgres_textsearch_intro.md"]
+  },
+  {
+    "question": "Which GIN operator class is the default for indexing jsonb documents?",
+    "expected_answer": "jsonb_ops is the default GIN operator class for jsonb.",
+    "relevant_sources": ["postgres_datatype_json.md"]
+  },
+  {
+    "question": "What containment operator is commonly used with jsonb and GIN indexes?",
+    "expected_answer": "The @> containment operator.",
+    "relevant_sources": ["postgres_datatype_json.md"]
+  },
+  {
+    "question": "What does EXPLAIN show about a PostgreSQL query?",
+    "expected_answer": "The plan the planner generates for the query, without running it (unless ANALYZE is used).",
+    "relevant_sources": ["postgres_using_explain.md"]
+  },
+  {
+    "question": "How does EXPLAIN ANALYZE differ from plain EXPLAIN?",
+    "expected_answer": "EXPLAIN ANALYZE executes the query and shows actual run-time statistics alongside the plan.",
+    "relevant_sources": ["postgres_using_explain.md"]
+  },
+  {
+    "question": "What is a practical tip when bulk-loading a large PostgreSQL table?",
+    "expected_answer": "Create indexes after loading data (or drop and recreate them) because maintaining indexes during load is expensive.",
+    "relevant_sources": ["postgres_populate.md"]
+  },
+  {
+    "question": "What does a PRIMARY KEY constraint guarantee in PostgreSQL?",
+    "expected_answer": "The column(s) uniquely identify rows and cannot be null.",
+    "relevant_sources": ["postgres_ddl_constraints.md"]
+  },
+  {
+    "question": "What is PostgreSQL's default transaction isolation level?",
+    "expected_answer": "Read Committed.",
+    "relevant_sources": ["postgres_transaction_iso.md"]
+  },
+  {
+    "question": "What anomaly can still occur under Read Committed isolation?",
+    "expected_answer": "A transaction can see different snapshots across statements (nonrepeatable reads / changed data between queries).",
+    "relevant_sources": ["postgres_transaction_iso.md"]
+  },
+  {
+    "question": "What is the difference between table-level LOCK and row-level locks in PostgreSQL?",
+    "expected_answer": "LOCK acquires table-level locks; row-level locks are typically taken by DML such as UPDATE/DELETE/SELECT FOR UPDATE.",
+    "relevant_sources": ["postgres_explicit_locking.md"]
   }
 ]
