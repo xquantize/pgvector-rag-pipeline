@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     chunk_overlap: int = 100
     top_k: int = 5
     embedding_dim: int = 768
+    # vector = ANN only; hybrid = ANN + Postgres FTS fused with RRF in SQL
+    retrieval_mode: Literal["vector", "hybrid"] = "hybrid"
 
     @property
     def database_url(self) -> str:
