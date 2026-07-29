@@ -16,7 +16,7 @@ via `sentence-transformers`.
 
 - **Ingestion** — load docs → chunk → embed → upsert into pgvector (idempotent).
 - **Query** — embed question → hybrid search (vector + FTS RRF in SQL) → LLM answer.
-- **Eval** — fixed grounded Q/A set → retrieval hit rate + answer quality.
+- **Eval** — fixed grounded Q/A set → retrieval hits, citation checks, LLM judge.
 
 ## Corpus
 
@@ -31,7 +31,9 @@ file’s header and in `data/corpus/manifest.json`.
 
 ```bash
 ollama pull nomic-embed-text   # embeddings (768-dim)
-ollama pull llama3.2           # chat / LLM-as-judge
+ollama pull llama3.2           # fine as a baseline chat model
+# or something stronger, e.g.:
+ollama pull qwen2.5:7b
 ```
 
 ## Quickstart
@@ -70,16 +72,20 @@ Postgres + pgvector (HNSW) + generated `tsvector` for hybrid retrieval, Ollama
 
 ## Results
 
-| Configuration | Retrieval hit rate | Answer quality |
-| ------------- | ------------------ | -------------- |
-| hybrid + nomic-embed-text + llama3.2 | 100% (20/20) | 0.65 |
+| Configuration | Retrieval | Judge quality |
+| ------------- | --------- | ------------- |
+| hybrid + llama3.2, loose prompt | 100% (20/20) | 0.65 |
+| hybrid + qwen2.5, grounded / low-temp prompt | 100% (20/20) | 0.67 |
 
-Measured with `make eval` on the committed Postgres/pgvector corpus. Retrieval
-is strong; answer quality is the gap (local chat model + LLM-as-judge noise).
+Retrieval was already solid. Tightening the prompt and swapping chat models
+barely moved the LLM-as-judge score — which is a bit expected when the same
+local stack is grading itself. Answers *look* cleaner by eye; the judge just
+doesn’t capture that well. Eval also tracks citation precision / citation
+source hits now so we’re not leaning only on the vibe score.
 
 ## What I'd improve next
 
-- Tighter generation prompt / stronger local chat model (lift answer quality)
 - Metadata filters (category) at query time
 - Reranking top-k before generation
-- Citation-accuracy metric alongside judge score
+- Vector-only vs hybrid A/B in the Results table
+- Tighten expected answers where the judge is being harsh on good replies
