@@ -2,7 +2,7 @@
 
 import pytest
 
-from eval.comparison import CompareError, compare_reports, validate_report
+from eval.comparison import NOT_RECORDED, CompareError, compare_reports, validate_report
 
 
 def _result(question: str, rank: int | None) -> dict:
@@ -24,6 +24,7 @@ def _report(
     return {
         "schema_version": 1,
         "run_id": run_id,
+        "code_revision": f"{run_id}-revision",
         "mode": mode,
         "questions_sha256": questions_sha256,
         "config": {
@@ -77,6 +78,22 @@ def test_compare_rejects_different_modes_by_default():
         compare_reports(baseline, candidate)
 
 
+@pytest.mark.parametrize("rank", [0, -1, 1.5, "1", True])
+def test_validate_report_rejects_invalid_rank(rank):
+    report = _report(run_id="b", results=[_result("Question", rank)])
+    with pytest.raises(CompareError, match="positive integer or null"):
+        validate_report(report, label="baseline")
+
+
+def test_validate_report_rejects_duplicate_questions():
+    report = _report(
+        run_id="b",
+        results=[_result("Duplicate", 1), _result("Duplicate", 2)],
+    )
+    with pytest.raises(CompareError, match="duplicate question"):
+        validate_report(report, label="baseline")
+
+
 def test_compare_summary_metric_deltas_and_skips_nulls():
     baseline = _report(
         run_id="b",
@@ -85,7 +102,7 @@ def test_compare_summary_metric_deltas_and_skips_nulls():
     candidate = _report(
         run_id="c",
         summary={"precision_at_1": 0.8, "mrr": 0.9, "answer_quality": None},
-        config={"top_k": 10},
+        config={"top_k": 10, "future_setting": "candidate"},
     )
 
     comparison = compare_reports(baseline, candidate)
@@ -94,10 +111,11 @@ def test_compare_summary_metric_deltas_and_skips_nulls():
     assert by_name["precision_at_1"].delta == pytest.approx(0.3)
     assert by_name["mrr"].delta == pytest.approx(0.15)
     assert "answer_quality" not in by_name
-    assert len(comparison.config_changes) == 1
-    assert comparison.config_changes[0].key == "top_k"
-    assert comparison.config_changes[0].baseline == 5
-    assert comparison.config_changes[0].candidate == 10
+    changes = {change.key: change for change in comparison.config_changes}
+    assert changes["top_k"].baseline == 5
+    assert changes["top_k"].candidate == 10
+    assert changes["future_setting"].baseline == NOT_RECORDED
+    assert changes["future_setting"].candidate == "candidate"
 
 
 def test_compare_question_rank_improvements_and_regressions():
@@ -135,10 +153,9 @@ def test_compare_question_rank_improvements_and_regressions():
     assert "Unchanged question" in unchanged
 
 
-def test_compare_marks_missing_questions_incomparable():
+def test_compare_rejects_mismatched_result_questions():
     baseline = _report(run_id="b", results=[_result("Only baseline", 1)])
     candidate = _report(run_id="c", results=[_result("Only candidate", 1)])
 
-    comparison = compare_reports(baseline, candidate)
-    questions = {item.question for item in comparison.incomparable}
-    assert questions == {"Only baseline", "Only candidate"}
+    with pytest.raises(CompareError, match="different questions"):
+        compare_reports(baseline, candidate)

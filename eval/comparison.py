@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 SUPPORTED_SCHEMA_VERSION = 1
+NOT_RECORDED = "<not recorded>"
 
 SUMMARY_METRICS = (
     "hit_rate_at_k",
@@ -15,17 +17,6 @@ SUMMARY_METRICS = (
     "citation_source_hit_rate",
     "citation_precision",
     "answer_quality",
-)
-
-CONFIG_KEYS = (
-    "retrieval_mode",
-    "top_k",
-    "embedding_provider",
-    "embedding_model",
-    "chat_model",
-    "chunk_size",
-    "chunk_overlap",
-    "llm_temperature",
 )
 
 
@@ -47,7 +38,7 @@ class QuestionRankChange:
     baseline_rank: int | None
     candidate_rank: int | None
     delta: int | None
-    status: str  # improved | regressed | unchanged | incomparable
+    status: Literal["improved", "regressed", "unchanged"]
 
 
 @dataclass(frozen=True)
@@ -61,6 +52,8 @@ class ConfigChange:
 class ComparisonReport:
     baseline_run_id: str
     candidate_run_id: str
+    baseline_revision: str | None
+    candidate_revision: str | None
     questions_sha256: str
     mode: str
     config_changes: list[ConfigChange]
@@ -68,7 +61,6 @@ class ComparisonReport:
     improved: list[QuestionRankChange]
     regressed: list[QuestionRankChange]
     unchanged: list[QuestionRankChange]
-    incomparable: list[QuestionRankChange]
 
 
 def _require_mapping(report: Any, label: str) -> dict[str, Any]:
@@ -86,7 +78,7 @@ def _require_key(report: dict[str, Any], key: str, label: str) -> Any:
     return report[key]
 
 
-def validate_report(report: dict[str, Any], *, label: str) -> dict[str, Any]:
+def validate_report(report: Any, *, label: str) -> dict[str, Any]:
     """Validate the minimum fields needed for a safe comparison."""
     report = _require_mapping(report, label)
     schema_version = _require_key(report, "schema_version", label)
@@ -99,6 +91,12 @@ def validate_report(report: dict[str, Any], *, label: str) -> dict[str, Any]:
     for key in ("run_id", "mode", "questions_sha256", "config", "summary", "results"):
         _require_key(report, key, label)
 
+    for key in ("run_id", "mode", "questions_sha256"):
+        if not isinstance(report[key], str) or not report[key]:
+            raise CompareError(f"{label} report {key} must be a non-empty string")
+    revision = report.get("code_revision")
+    if revision is not None and (not isinstance(revision, str) or not revision):
+        raise CompareError(f"{label} report code_revision must be a non-empty string or null")
     if not isinstance(report["config"], dict):
         raise CompareError(f"{label} report config must be an object")
     if not isinstance(report["summary"], dict):
@@ -106,16 +104,27 @@ def validate_report(report: dict[str, Any], *, label: str) -> dict[str, Any]:
     if not isinstance(report["results"], list) or not report["results"]:
         raise CompareError(f"{label} report results must be a non-empty list")
 
+    questions: set[str] = set()
     for index, row in enumerate(report["results"]):
         if not isinstance(row, dict):
             raise CompareError(f"{label} result[{index}] must be an object")
-        if "question" not in row:
-            raise CompareError(f"{label} result[{index}] is missing question")
+        question = row.get("question")
+        if not isinstance(question, str) or not question:
+            raise CompareError(f"{label} result[{index}].question must be a non-empty string")
+        if question in questions:
+            raise CompareError(f"{label} report contains duplicate question: {question!r}")
+        questions.add(question)
         retrieval = row.get("retrieval")
         if not isinstance(retrieval, dict):
             raise CompareError(f"{label} result[{index}] is missing retrieval metrics")
         if "first_relevant_rank" not in retrieval:
             raise CompareError(f"{label} result[{index}] is missing retrieval.first_relevant_rank")
+        rank = retrieval["first_relevant_rank"]
+        if rank is not None and (isinstance(rank, bool) or not isinstance(rank, int) or rank < 1):
+            raise CompareError(
+                f"{label} result[{index}].retrieval.first_relevant_rank "
+                "must be a positive integer or null"
+            )
 
     return report
 
@@ -130,11 +139,17 @@ def _metric_deltas(
         candidate_value = candidate_summary.get(name)
         if baseline_value is None or candidate_value is None:
             continue
+        if isinstance(baseline_value, bool) or isinstance(candidate_value, bool):
+            raise CompareError(f"summary.{name} must be numeric when present")
         try:
             baseline_num = float(baseline_value)
             candidate_num = float(candidate_value)
         except (TypeError, ValueError) as exc:
             raise CompareError(f"summary.{name} must be numeric when present") from exc
+        if not math.isfinite(baseline_num) or not math.isfinite(candidate_num):
+            raise CompareError(f"summary.{name} must be finite when present")
+        if not 0.0 <= baseline_num <= 1.0 or not 0.0 <= candidate_num <= 1.0:
+            raise CompareError(f"summary.{name} must be between 0 and 1")
         deltas.append(
             MetricDelta(
                 name=name,
@@ -151,9 +166,9 @@ def _config_changes(
     candidate_config: dict[str, Any],
 ) -> list[ConfigChange]:
     changes: list[ConfigChange] = []
-    for key in CONFIG_KEYS:
-        baseline_value = baseline_config.get(key)
-        candidate_value = candidate_config.get(key)
+    for key in sorted(baseline_config.keys() | candidate_config.keys()):
+        baseline_value = baseline_config.get(key, NOT_RECORDED)
+        candidate_value = candidate_config.get(key, NOT_RECORDED)
         if baseline_value != candidate_value:
             changes.append(
                 ConfigChange(key=key, baseline=baseline_value, candidate=candidate_value)
@@ -161,7 +176,9 @@ def _config_changes(
     return changes
 
 
-def _rank_status(baseline_rank: int | None, candidate_rank: int | None) -> str:
+def _rank_status(
+    baseline_rank: int | None, candidate_rank: int | None
+) -> Literal["improved", "regressed", "unchanged"]:
     if baseline_rank is None and candidate_rank is None:
         return "unchanged"
     if baseline_rank is None and candidate_rank is not None:
@@ -183,38 +200,20 @@ def _question_rank_changes(
     list[QuestionRankChange],
     list[QuestionRankChange],
     list[QuestionRankChange],
-    list[QuestionRankChange],
 ]:
     baseline_by_question = {row["question"]: row for row in baseline_results}
     candidate_by_question = {row["question"]: row for row in candidate_results}
 
-    shared = [q for q in baseline_by_question if q in candidate_by_question]
-    only_baseline = [q for q in baseline_by_question if q not in candidate_by_question]
-    only_candidate = [q for q in candidate_by_question if q not in baseline_by_question]
+    if baseline_by_question.keys() != candidate_by_question.keys():
+        raise CompareError("report results contain different questions")
 
     improved: list[QuestionRankChange] = []
     regressed: list[QuestionRankChange] = []
     unchanged: list[QuestionRankChange] = []
-    incomparable: list[QuestionRankChange] = []
 
-    for question in only_baseline + only_candidate:
-        incomparable.append(
-            QuestionRankChange(
-                question=question,
-                baseline_rank=None,
-                candidate_rank=None,
-                delta=None,
-                status="incomparable",
-            )
-        )
-
-    for question in shared:
+    for question in baseline_by_question:
         baseline_rank = baseline_by_question[question]["retrieval"].get("first_relevant_rank")
         candidate_rank = candidate_by_question[question]["retrieval"].get("first_relevant_rank")
-        if baseline_rank is not None:
-            baseline_rank = int(baseline_rank)
-        if candidate_rank is not None:
-            candidate_rank = int(candidate_rank)
 
         if baseline_rank is None or candidate_rank is None:
             delta = None
@@ -236,14 +235,12 @@ def _question_rank_changes(
         else:
             unchanged.append(change)
 
-    return improved, regressed, unchanged, incomparable
+    return improved, regressed, unchanged
 
 
 def compare_reports(
-    baseline: dict[str, Any],
-    candidate: dict[str, Any],
-    *,
-    require_same_mode: bool = True,
+    baseline: Any,
+    candidate: Any,
 ) -> ComparisonReport:
     """Compare two validated eval reports and return structured deltas."""
     baseline = validate_report(baseline, label="baseline")
@@ -256,13 +253,12 @@ def compare_reports(
             f"candidate={candidate['questions_sha256'][:12]}…)"
         )
 
-    if require_same_mode and baseline["mode"] != candidate["mode"]:
+    if baseline["mode"] != candidate["mode"]:
         raise CompareError(
-            f"eval modes differ (baseline={baseline['mode']!r}, "
-            f"candidate={candidate['mode']!r}); pass require_same_mode=False to allow"
+            f"eval modes differ (baseline={baseline['mode']!r}, candidate={candidate['mode']!r})"
         )
 
-    improved, regressed, unchanged, incomparable = _question_rank_changes(
+    improved, regressed, unchanged = _question_rank_changes(
         baseline["results"],
         candidate["results"],
     )
@@ -270,6 +266,8 @@ def compare_reports(
     return ComparisonReport(
         baseline_run_id=str(baseline["run_id"]),
         candidate_run_id=str(candidate["run_id"]),
+        baseline_revision=baseline.get("code_revision"),
+        candidate_revision=candidate.get("code_revision"),
         questions_sha256=str(baseline["questions_sha256"]),
         mode=str(candidate["mode"]),
         config_changes=_config_changes(baseline["config"], candidate["config"]),
@@ -277,5 +275,4 @@ def compare_reports(
         improved=improved,
         regressed=regressed,
         unchanged=unchanged,
-        incomparable=incomparable,
     )
