@@ -9,6 +9,8 @@ def test_source_matches_basename_or_full_path():
     assert source_matches("guide.md", "data/corpus/guide.md")
     assert source_matches("data/corpus/guide.md", "data/corpus/guide.md")
     assert not source_matches("other.md", "data/corpus/guide.md")
+    assert not source_matches("guide.md", "data/corpus/not-guide.md")
+    assert not source_matches("expected/guide.md", "other/guide.md")
 
 
 def test_unique_sources_keeps_first_occurrence():
