@@ -1,4 +1,4 @@
-.PHONY: db-up db-down db-reset install fetch-corpus ingest eval eval-retrieval test fmt
+.PHONY: db-up db-down db-reset install fetch-corpus ingest eval eval-retrieval test fmt check
 
 db-up:      ## start Postgres+pgvector
 	docker compose up -d
@@ -35,3 +35,8 @@ test:       ## run unit tests
 
 fmt:        ## format & lint
 	ruff format . && ruff check --fix .
+
+check:      ## run the same quality checks as CI
+	ruff format --check .
+	ruff check .
+	pytest

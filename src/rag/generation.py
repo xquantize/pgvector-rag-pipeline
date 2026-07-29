@@ -156,11 +156,7 @@ def judge_answer(question: str, expected: str, actual: str) -> float:
         {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
         {
             "role": "user",
-            "content": (
-                f"QUESTION: {question}\n"
-                f"EXPECTED: {expected}\n"
-                f"ACTUAL: {actual}\n"
-            ),
+            "content": (f"QUESTION: {question}\nEXPECTED: {expected}\nACTUAL: {actual}\n"),
         },
     ]
     raw = _ollama_chat(
