@@ -73,12 +73,6 @@ def build_messages(question: str, chunks: list[Chunk]) -> list[dict[str, str]]:
     ]
 
 
-def build_prompt(question: str, chunks: list[Chunk]) -> str:
-    """Single-string prompt (tests / debugging). Prefer build_messages for chat."""
-    messages = build_messages(question, chunks)
-    return "\n\n".join(f"{m['role'].upper()}:\n{m['content']}" for m in messages)
-
-
 def extract_citations(answer: str) -> list[int]:
     found = [int(n) for n in re.findall(r"\[(\d+)\]", answer)]
     return list(dict.fromkeys(found))

@@ -81,10 +81,6 @@ def upsert_chunks(rows: list[dict[str, Any]]) -> int:
     return len(prepared)
 
 
-# Back-compat alias used by older call sites / tests.
-insert_chunks = upsert_chunks
-
-
 def search(
     query_embedding: list[float],
     k: int,

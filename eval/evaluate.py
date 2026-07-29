@@ -27,12 +27,6 @@ def load_questions(path: Path = QUESTIONS_PATH) -> list[dict]:
         return json.load(f)
 
 
-def retrieval_hit(question: str, relevant_sources: list[str], k: int | None = None) -> bool:
-    chunks = retrieve(question, k=k)
-    metrics = evaluate_source_ranking([chunk.source for chunk in chunks], relevant_sources)
-    return metrics.hit_at_k
-
-
 def citation_precision(result: AnswerWithSources) -> float:
     """Share of [n] markers that point at a real retrieved chunk."""
     if not result.citations:

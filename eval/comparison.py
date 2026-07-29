@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Any
 
 SUPPORTED_SCHEMA_VERSION = 1
@@ -40,9 +40,6 @@ class MetricDelta:
     candidate: float
     delta: float
 
-    def as_dict(self) -> dict[str, str | float]:
-        return asdict(self)
-
 
 @dataclass(frozen=True)
 class QuestionRankChange:
@@ -52,18 +49,12 @@ class QuestionRankChange:
     delta: int | None
     status: str  # improved | regressed | unchanged | incomparable
 
-    def as_dict(self) -> dict[str, str | int | None]:
-        return asdict(self)
-
 
 @dataclass(frozen=True)
 class ConfigChange:
     key: str
     baseline: Any
     candidate: Any
-
-    def as_dict(self) -> dict[str, Any]:
-        return asdict(self)
 
 
 @dataclass(frozen=True)
@@ -79,20 +70,6 @@ class ComparisonReport:
     unchanged: list[QuestionRankChange]
     incomparable: list[QuestionRankChange]
 
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "baseline_run_id": self.baseline_run_id,
-            "candidate_run_id": self.candidate_run_id,
-            "questions_sha256": self.questions_sha256,
-            "mode": self.mode,
-            "config_changes": [item.as_dict() for item in self.config_changes],
-            "metrics": [item.as_dict() for item in self.metrics],
-            "improved": [item.as_dict() for item in self.improved],
-            "regressed": [item.as_dict() for item in self.regressed],
-            "unchanged": [item.as_dict() for item in self.unchanged],
-            "incomparable": [item.as_dict() for item in self.incomparable],
-        }
-
 
 def _require_mapping(report: Any, label: str) -> dict[str, Any]:
     if not isinstance(report, dict):
@@ -102,7 +79,10 @@ def _require_mapping(report: Any, label: str) -> dict[str, Any]:
 
 def _require_key(report: dict[str, Any], key: str, label: str) -> Any:
     if key not in report:
-        raise CompareError(f"{label} report is missing required field: {key}")
+        raise CompareError(
+            f"{label} report is missing required field: {key} "
+            "(reports written by an older version need re-running)"
+        )
     return report[key]
 
 
