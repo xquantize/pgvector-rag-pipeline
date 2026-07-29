@@ -1,4 +1,4 @@
-.PHONY: db-up db-down db-reset install fetch-corpus ingest ask eval eval-retrieval eval-compare eval-compare-latest test fmt check
+.PHONY: db-up db-down db-reset install fetch-corpus ingest ask eval eval-retrieval eval-vector eval-hybrid eval-compare eval-compare-latest test fmt check
 
 db-up:      ## start Postgres+pgvector
 	docker compose up -d
@@ -36,6 +36,12 @@ eval:       ## run the evaluation harness
 
 eval-retrieval: ## fast retrieval-only eval (no chat/judge calls)
 	PYTHONPATH=src python -m eval.evaluate --retrieval-only
+
+eval-vector: ## retrieval-only eval forcing vector-only ANN search
+	RETRIEVAL_MODE=vector PYTHONPATH=src python -m eval.evaluate --retrieval-only
+
+eval-hybrid: ## retrieval-only eval forcing hybrid (vector + FTS via RRF)
+	RETRIEVAL_MODE=hybrid PYTHONPATH=src python -m eval.evaluate --retrieval-only
 
 eval-compare: ## diff two runs: make eval-compare BASE=old.json CANDIDATE=new.json
 	@if [ -z "$(BASE)" ] || [ -z "$(CANDIDATE)" ]; then \
