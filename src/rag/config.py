@@ -18,8 +18,7 @@ class Settings(BaseSettings):
 
     ollama_base_url: str = "http://localhost:11434"
     ollama_embed_model: str = "nomic-embed-text"
-    # Prefer a stronger instruct model when available, e.g. qwen2.5:7b or llama3.1
-    ollama_chat_model: str = "llama3.2"
+    ollama_chat_model: str = "qwen2.5:7b"
 
     hf_embed_model: str = "BAAI/bge-base-en-v1.5"
     hf_token: str | None = None

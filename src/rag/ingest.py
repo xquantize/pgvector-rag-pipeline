@@ -101,6 +101,12 @@ def ingest_path(path: str | Path, *, clear: bool = False) -> int:
         db.clear_documents()
 
     manifest = _load_manifest(root if root.is_dir() else root.parent)
+    if root.is_dir() and not clear:
+        current_sources = {file_path.as_posix() for file_path in files}
+        for source in db.list_sources():
+            if Path(source).is_relative_to(root) and source not in current_sources:
+                db.delete_source(source)
+
     total = 0
 
     for file_path in tqdm(files, desc="ingest"):

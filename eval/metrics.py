@@ -9,7 +9,11 @@ from pathlib import Path
 
 def source_matches(expected: str, actual: str) -> bool:
     """Match a source label against either a full path or basename."""
-    return expected == actual or expected in actual or Path(actual).name == expected
+    expected_path = Path(expected)
+    actual_path = Path(actual)
+    if expected_path == actual_path:
+        return True
+    return expected_path.name == expected and expected == actual_path.name
 
 
 def unique_sources(sources: list[str]) -> list[str]:

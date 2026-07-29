@@ -27,13 +27,13 @@ file’s header and in `data/corpus/manifest.json`.
 ## Prerequisites
 
 1. [Docker](https://docs.docker.com/get-docker/) / OrbStack (for Postgres + pgvector)
-2. [Ollama](https://ollama.com/download) with models pulled:
+2. Python 3.11+
+3. [Ollama](https://ollama.com/download) with models pulled:
 
 ```bash
 ollama pull nomic-embed-text   # embeddings (768-dim)
-ollama pull llama3.2           # fine as a baseline chat model
-# or something stronger, e.g.:
-ollama pull qwen2.5:7b
+ollama pull qwen2.5:7b         # default chat and judge model
+# Smaller alternative: ollama pull llama3.2, then update OLLAMA_CHAT_MODEL in .env
 ```
 
 ## Quickstart
@@ -41,10 +41,12 @@ ollama pull qwen2.5:7b
 ```bash
 cp .env.example .env           # defaults are local Ollama — no API keys
 make db-up                     # start Postgres + pgvector
-source .venv/bin/activate      # Python >= 3.11
+python3.12 -m venv .venv
+source .venv/bin/activate
 make install
 make fetch-corpus              # optional refresh; committed corpus works offline
 make ingest                    # upsert chunks from ./data/corpus
+make ask Q="How does HNSW differ from IVFFlat?"
 make eval                      # 20 grounded questions
 make eval-retrieval            # fast: retrieval metrics only, no chat calls
 ```
@@ -114,6 +116,20 @@ python -m eval.evaluate --k 10              # try another top-k
 python -m eval.evaluate --no-artifacts      # print only
 python -m eval.evaluate --output-dir /tmp/eval-runs
 ```
+
+### Comparing two runs
+
+Saved reports can be diffed to see whether a change actually helped. The
+comparison refuses to run unless both reports cover the same question set, so a
+"win" can't come from quietly editing the questions.
+
+```bash
+make eval-compare-latest                    # diff the two most recent runs
+make eval-compare BASE=eval/results/a.json CANDIDATE=eval/results/b.json
+```
+
+It reports which config values changed, the delta on each summary metric, and
+the questions whose first relevant source moved up or down the ranking.
 
 ## What I'd improve next
 

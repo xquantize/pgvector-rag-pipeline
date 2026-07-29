@@ -63,3 +63,38 @@ def test_full_eval_retrieves_once_and_writes_report(tmp_path, monkeypatch):
     assert report["summary"]["mrr"] == 1.0
     assert report["summary"]["citation_source_hit_rate"] == 1.0
     assert report["summary"]["answer_quality"] == 0.75
+
+
+def test_full_eval_skips_judge_when_expected_answer_is_missing(tmp_path, monkeypatch, capsys):
+    questions_path = tmp_path / "questions.json"
+    questions_path.write_text(
+        json.dumps([{"question": "What is the fact?", "relevant_sources": ["expected.md"]}]),
+        encoding="utf-8",
+    )
+    chunks = [
+        Chunk(
+            content="The fact is one.",
+            source="data/corpus/expected.md",
+            metadata={},
+            distance=0.1,
+        )
+    ]
+    monkeypatch.setattr(evaluate, "retrieve", lambda _question, k: chunks)
+    monkeypatch.setattr(
+        evaluate,
+        "generate_answer",
+        lambda _question, _chunks: AnswerWithSources(
+            answer="The fact is one [1].",
+            sources=[chunks[0].source],
+            chunks=chunks,
+            citations=[1],
+        ),
+    )
+
+    def unexpected_judge(*_args):
+        raise AssertionError("judge should not run without an expected answer")
+
+    monkeypatch.setattr(evaluate, "judge_answer", unexpected_judge)
+
+    assert evaluate.run_eval(questions_path, save_artifacts=False) == 0
+    assert "Answer quality:      n/a" in capsys.readouterr().out

@@ -2,7 +2,6 @@
 
 from rag.generation import (
     build_messages,
-    build_prompt,
     extract_citations,
     parse_judge_score,
 )
@@ -22,11 +21,9 @@ def test_build_messages_uses_system_and_user_roles():
     assert "What is X?" in messages[1]["content"]
 
 
-def test_build_prompt_includes_context_and_question():
-    prompt = build_prompt("What is X?", [_chunk("X is 1.")])
-    assert "SYSTEM:" in prompt
-    assert "USER:" in prompt
-    assert "X is 1." in prompt
+def test_build_messages_includes_chunk_text():
+    messages = build_messages("What is X?", [_chunk("X is 1.")])
+    assert "X is 1." in messages[1]["content"]
 
 
 def test_extract_citations_dedupes_and_orders_by_appearance():

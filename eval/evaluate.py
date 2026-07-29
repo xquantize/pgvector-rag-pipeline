@@ -27,12 +27,6 @@ def load_questions(path: Path = QUESTIONS_PATH) -> list[dict]:
         return json.load(f)
 
 
-def retrieval_hit(question: str, relevant_sources: list[str], k: int | None = None) -> bool:
-    chunks = retrieve(question, k=k)
-    metrics = evaluate_source_ranking([chunk.source for chunk in chunks], relevant_sources)
-    return metrics.hit_at_k
-
-
 def citation_precision(result: AnswerWithSources) -> float:
     """Share of [n] markers that point at a real retrieved chunk."""
     if not result.citations:
@@ -62,15 +56,20 @@ def _run_config(k: int) -> dict[str, Any]:
         "retrieval_mode": settings.retrieval_mode,
         "top_k": k,
         "embedding_provider": settings.embedding_provider,
+        "embedding_dim": settings.embedding_dim,
         "embedding_model": (
             settings.ollama_embed_model
             if settings.embedding_provider == "ollama"
             else settings.hf_embed_model
         ),
+        "llm_provider": settings.llm_provider,
         "chat_model": settings.ollama_chat_model,
         "chunk_size": settings.chunk_size,
         "chunk_overlap": settings.chunk_overlap,
         "llm_temperature": settings.llm_temperature,
+        "llm_num_predict": settings.llm_num_predict,
+        "context_chunk_chars": settings.context_chunk_chars,
+        "judge_temperature": settings.judge_temperature,
     }
 
 
@@ -79,18 +78,29 @@ def _file_sha256(path: Path) -> str:
 
 
 def _git_revision() -> str | None:
-    """Best-effort code revision for reproducible local/CI reports."""
+    """Best-effort revision, marked dirty when local changes affect reproducibility."""
+    root = Path(__file__).resolve().parents[1]
     try:
-        result = subprocess.run(
+        revision = subprocess.run(
             ["git", "rev-parse", "HEAD"],
-            cwd=Path(__file__).resolve().parents[1],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        status = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=root,
             check=True,
             capture_output=True,
             text=True,
         )
     except (OSError, subprocess.CalledProcessError):
         return None
-    return result.stdout.strip() or None
+    value = revision.stdout.strip()
+    if not value:
+        return None
+    return f"{value}-dirty" if status.stdout else value
 
 
 def run_eval(
@@ -156,10 +166,11 @@ def run_eval(
             citations = answer_result.citations
             c_prec = citation_precision(answer_result)
             c_hit = citation_source_hit(answer_result, relevant)
-            score = judge_answer(q, expected, answer) if expected else 0.0
             cite_precision_scores.append(c_prec)
             cite_hit_scores.append(float(c_hit))
-            quality_scores.append(score)
+            if expected:
+                score = judge_answer(q, expected, answer)
+                quality_scores.append(score)
 
         result_row = {
             "question": q,
@@ -225,7 +236,9 @@ def run_eval(
     if not retrieval_only:
         print(f"Citation source hit: {summary['citation_source_hit_rate']:.2%}")
         print(f"Citation precision:  {summary['citation_precision']:.3f}")
-        print(f"Answer quality:      {summary['answer_quality']:.3f}")
+        answer_quality = summary["answer_quality"]
+        quality_summary = "n/a" if answer_quality is None else f"{answer_quality:.3f}"
+        print(f"Answer quality:      {quality_summary}")
         print("Judge quality is noisy; retrieval/citation metrics are deterministic.")
 
     if save_artifacts:

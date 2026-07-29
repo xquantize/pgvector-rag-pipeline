@@ -32,6 +32,13 @@ def source_file_hash(source: str) -> str | None:
         return row[0] if row else None
 
 
+def list_sources() -> list[str]:
+    """Return every source currently represented in the index."""
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT DISTINCT source FROM documents ORDER BY source")
+        return [row[0] for row in cur.fetchall()]
+
+
 def delete_source(source: str) -> None:
     with get_connection() as conn, conn.cursor() as cur:
         cur.execute("DELETE FROM documents WHERE source = %s", (source,))
@@ -79,10 +86,6 @@ def upsert_chunks(rows: list[dict[str, Any]]) -> int:
         cur.executemany(sql, prepared)
         conn.commit()
     return len(prepared)
-
-
-# Back-compat alias used by older call sites / tests.
-insert_chunks = upsert_chunks
 
 
 def search(
