@@ -1,0 +1,12 @@
+[
+  {
+    "question": "How long is the Acme Widget Model X battery life?",
+    "expected_answer": "12 hours of continuous use.",
+    "relevant_sources": ["sample.md"]
+  },
+  {
+    "question": "What is the warranty period for the Acme Widget?",
+    "expected_answer": "Two years from the purchase date for manufacturing defects.",
+    "relevant_sources": ["sample.md"]
+  }
+]
