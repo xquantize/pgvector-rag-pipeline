@@ -42,7 +42,9 @@ def _embed_ollama(texts: list[str]) -> list[list[float]]:
                     legacy.raise_for_status()
                     emb = legacy.json().get("embedding")
                     if not emb:
-                        raise EmbeddingError(f"Unexpected Ollama embeddings response: {legacy.text}")
+                        raise EmbeddingError(
+                            f"Unexpected Ollama embeddings response: {legacy.text}"
+                        )
                     embeddings.append(emb)
                 return _validate_dim(embeddings)
             resp.raise_for_status()

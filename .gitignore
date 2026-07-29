@@ -16,6 +16,9 @@ data/*
 !data/corpus/
 !data/corpus/**
 
+# Generated eval reports
+eval/results/
+
 # OS / editor
 .DS_Store
 .idea/
