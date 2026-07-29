@@ -1,4 +1,4 @@
-.PHONY: db-up db-down db-reset install fetch-corpus ingest ask eval eval-retrieval eval-vector eval-hybrid eval-compare eval-compare-latest test fmt check
+.PHONY: db-up db-down db-reset install fetch-corpus ingest ask eval eval-retrieval eval-vector eval-hybrid eval-ab eval-compare eval-compare-latest test fmt check
 
 db-up:      ## start Postgres+pgvector
 	docker compose up -d
@@ -42,6 +42,11 @@ eval-vector: ## retrieval-only eval forcing vector-only ANN search
 
 eval-hybrid: ## retrieval-only eval forcing hybrid (vector + FTS via RRF)
 	RETRIEVAL_MODE=hybrid PYTHONPATH=src python -m eval.evaluate --retrieval-only
+
+eval-ab:    ## run vector then hybrid and diff them (baseline=vector, candidate=hybrid)
+	@$(MAKE) --no-print-directory eval-vector
+	@$(MAKE) --no-print-directory eval-hybrid
+	@$(MAKE) --no-print-directory eval-compare-latest
 
 eval-compare: ## diff two runs: make eval-compare BASE=old.json CANDIDATE=new.json
 	@if [ -z "$(BASE)" ] || [ -z "$(CANDIDATE)" ]; then \
