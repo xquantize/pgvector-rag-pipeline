@@ -1,4 +1,4 @@
-"""CLI entry point: build the index from ./data.  Usage: make ingest"""
+"""CLI entry point: build the index from ./data/corpus.  Usage: make ingest"""
 
 from __future__ import annotations
 
@@ -13,8 +13,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "path",
         nargs="?",
-        default="./data",
-        help="File or directory to ingest (default: ./data)",
+        default="./data/corpus",
+        help="File or directory to ingest (default: ./data/corpus)",
     )
     parser.add_argument(
         "--clear",

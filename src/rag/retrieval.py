@@ -21,7 +21,7 @@ class Chunk:
 def retrieve(question: str, k: int | None = None) -> list[Chunk]:
     top_k = k if k is not None else settings.top_k
     embedding = embed_query(question)
-    rows = db.search(embedding, top_k)
+    rows = db.search(embedding, top_k, query_text=question)
     results: list[Chunk] = []
     for row in rows:
         meta = row.get("metadata") or {}
