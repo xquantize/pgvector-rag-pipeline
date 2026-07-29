@@ -14,13 +14,19 @@ via `sentence-transformers`.
 
 ## Architecture
 
-- **Ingestion** — load docs → chunk → embed → store in pgvector.
-- **Query** — embed question → similarity search → LLM answer with sources.
-- **Eval** — run a fixed Q/A set → score retrieval hit rate + answer quality.
+- **Ingestion** — load docs → chunk → embed → upsert into pgvector (idempotent).
+- **Query** — embed question → hybrid search (vector + FTS RRF in SQL) → LLM answer.
+- **Eval** — fixed grounded Q/A set → retrieval hit rate + answer quality.
+
+## Corpus
+
+`data/corpus/` is a curated slice of **PostgreSQL 16 docs** plus the **pgvector
+README**, fetched by `make fetch-corpus`. Sources and licenses are noted in each
+file’s header and in `data/corpus/manifest.json`.
 
 ## Prerequisites
 
-1. [Docker](https://docs.docker.com/get-docker/) (for Postgres + pgvector)
+1. [Docker](https://docs.docker.com/get-docker/) / OrbStack (for Postgres + pgvector)
 2. [Ollama](https://ollama.com/download) with models pulled:
 
 ```bash
@@ -33,19 +39,19 @@ ollama pull llama3.2           # chat / LLM-as-judge
 ```bash
 cp .env.example .env           # defaults are local Ollama — no API keys
 make db-up                     # start Postgres + pgvector
-python -m venv .venv && source .venv/bin/activate
-make install                   # install dependencies
-# add .txt / .md / .pdf files to ./data, then:
-make ingest                    # build the index
-make eval                      # run the evaluation harness
+source .venv/bin/activate      # Python >= 3.11
+make install
+make fetch-corpus              # optional refresh; committed corpus works offline
+make ingest                    # upsert chunks from ./data/corpus
+make eval                      # 20 grounded questions
 ```
 
-Edit `eval/test_questions.json` to match your corpus before trusting eval scores.
+Schema changes require a fresh volume: `make db-reset`.
 
 ### Optional: Hugging Face embeddings (local, free)
 
 ```bash
-pip install -e ".[huggingface]"
+uv pip install -e ".[huggingface]"
 ```
 
 In `.env`:
@@ -56,26 +62,24 @@ HF_EMBED_MODEL=BAAI/bge-base-en-v1.5
 EMBEDDING_DIM=768
 ```
 
-Keep `EMBEDDING_DIM` (and `VECTOR(n)` in `scripts/init_db.sql`) aligned with the
-model. If you change the dimension after the DB was created, recreate the volume:
-
-```bash
-docker compose down -v && make db-up
-```
-
 ## Tech
 
-Postgres + pgvector, Ollama (or local HF) embeddings, Ollama chat for generation
-and LLM-as-judge scoring. Python 3.11+, packaged with `pyproject.toml`.
+Postgres + pgvector (HNSW) + generated `tsvector` for hybrid retrieval, Ollama
+(or local HF) embeddings, Ollama chat for generation and LLM-as-judge. Python
+3.11+, packaged with `pyproject.toml`.
 
 ## Results
 
 | Configuration | Retrieval hit rate | Answer quality |
 | ------------- | ------------------ | -------------- |
-| _baseline_    | _tbd_              | _tbd_          |
+| hybrid + nomic-embed-text + llama3.2 | 100% (20/20) | 0.65 |
 
-_(Fill this in from `make eval`. Show at least one before/after improvement.)_
+Measured with `make eval` on the committed Postgres/pgvector corpus. Retrieval
+is strong; answer quality is the gap (local chat model + LLM-as-judge noise).
 
 ## What I'd improve next
 
-_(Hybrid search, reranking, larger eval set, metadata filtering, ...)_
+- Tighter generation prompt / stronger local chat model (lift answer quality)
+- Metadata filters (category) at query time
+- Reranking top-k before generation
+- Citation-accuracy metric alongside judge score

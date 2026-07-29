@@ -10,10 +10,11 @@ venv/
 # Env & secrets
 .env
 
-# Data (keep sample; ignore user corpora)
+# Data: commit the curated corpus; ignore ad-hoc user drops
 data/*
 !data/.gitkeep
-!data/sample.md
+!data/corpus/
+!data/corpus/**
 
 # OS / editor
 .DS_Store

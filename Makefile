@@ -1,10 +1,14 @@
-.PHONY: db-up db-down install ingest eval test fmt
+.PHONY: db-up db-down db-reset install fetch-corpus ingest eval test fmt
 
 db-up:      ## start Postgres+pgvector
 	docker compose up -d
 
 db-down:    ## stop the database
 	docker compose down
+
+db-reset:   ## wipe DB volume and recreate schema from init_db.sql
+	docker compose down -v
+	docker compose up -d
 
 install:    ## install deps into the current environment
 	@if command -v uv >/dev/null 2>&1; then \
@@ -14,7 +18,10 @@ install:    ## install deps into the current environment
 		python -m pip install -e ".[dev]"; \
 	fi
 
-ingest:     ## build the index from ./data
+fetch-corpus: ## refresh Postgres/pgvector docs into data/corpus
+	PYTHONPATH=src python -m scripts.fetch_corpus
+
+ingest:     ## build the index from ./data/corpus
 	PYTHONPATH=src python -m scripts.run_ingest
 
 eval:       ## run the evaluation harness
