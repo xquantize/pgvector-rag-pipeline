@@ -46,6 +46,7 @@ make install
 make fetch-corpus              # optional refresh; committed corpus works offline
 make ingest                    # upsert chunks from ./data/corpus
 make eval                      # 20 grounded questions
+make eval-retrieval            # fast: retrieval metrics only, no chat calls
 ```
 
 Schema changes require a fresh volume: `make db-reset`.
@@ -72,16 +73,47 @@ Postgres + pgvector (HNSW) + generated `tsvector` for hybrid retrieval, Ollama
 
 ## Results
 
-| Configuration | Retrieval | Judge quality |
-| ------------- | --------- | ------------- |
-| hybrid + llama3.2, loose prompt | 100% (20/20) | 0.65 |
-| hybrid + qwen2.5, grounded / low-temp prompt | 100% (20/20) | 0.67 |
+Retrieval (`hybrid`, `nomic-embed-text`, top-5):
+
+| Hit rate@5 | Precision@1 | MRR | nDCG@5 |
+| ---------- | ----------- | --- | ------ |
+| 100% | 80% | 0.900 | 0.926 |
+
+Generation:
+
+| Configuration | Judge quality |
+| ------------- | ------------- |
+| llama3.2, loose prompt | 0.65 |
+| qwen2.5:7b, grounded / low-temp prompt | 0.67 |
 
 Retrieval was already solid. Tightening the prompt and swapping chat models
 barely moved the LLM-as-judge score — which is a bit expected when the same
 local stack is grading itself. Answers *look* cleaner by eye; the judge just
 doesn’t capture that well. Eval also tracks citation precision / citation
 source hits now so we’re not leaning only on the vibe score.
+
+### Eval metrics and artifacts
+
+The retrieval report is source-level: repeated chunks from one document count as
+one ranked source. It prints:
+
+- **Hit rate@k** — whether any expected source appeared in the top-k.
+- **Precision@1** — whether the first source was relevant.
+- **MRR** — rewards putting the first relevant source near the top.
+- **nDCG@k** — rewards relevant sources appearing higher in the ranking.
+
+Each run writes a full JSON report and a flat per-question CSV under
+`eval/results/` (gitignored). The report includes the model, retrieval mode,
+chunking settings, top-k, code revision, question-set hash, summary metrics,
+and per-question rankings.
+
+```bash
+make eval-retrieval                         # quick retrieval iteration
+make eval                                   # full generation + judge run
+python -m eval.evaluate --k 10              # try another top-k
+python -m eval.evaluate --no-artifacts      # print only
+python -m eval.evaluate --output-dir /tmp/eval-runs
+```
 
 ## What I'd improve next
 

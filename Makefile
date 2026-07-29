@@ -1,4 +1,4 @@
-.PHONY: db-up db-down db-reset install fetch-corpus ingest eval test fmt
+.PHONY: db-up db-down db-reset install fetch-corpus ingest eval eval-retrieval test fmt
 
 db-up:      ## start Postgres+pgvector
 	docker compose up -d
@@ -26,6 +26,9 @@ ingest:     ## build the index from ./data/corpus
 
 eval:       ## run the evaluation harness
 	PYTHONPATH=src python -m eval.evaluate
+
+eval-retrieval: ## fast retrieval-only eval (no chat/judge calls)
+	PYTHONPATH=src python -m eval.evaluate --retrieval-only
 
 test:       ## run unit tests
 	pytest
