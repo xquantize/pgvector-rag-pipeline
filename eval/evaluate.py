@@ -6,7 +6,7 @@ import json
 import sys
 from pathlib import Path
 
-from rag.generation import judge_answer
+from rag.generation import AnswerWithSources, judge_answer
 from rag.pipeline import answer_question
 from rag.retrieval import retrieve
 
@@ -18,15 +18,40 @@ def load_questions(path: Path = QUESTIONS_PATH) -> list[dict]:
         return json.load(f)
 
 
+def _source_match(expected: str, source: str) -> bool:
+    return expected == source or expected in source or Path(source).name == expected
+
+
 def retrieval_hit(question: str, relevant_sources: list[str], k: int | None = None) -> bool:
     chunks = retrieve(question, k=k)
     retrieved = {c.source for c in chunks}
-    # Match on basename or full path substring.
-    for expected in relevant_sources:
-        for src in retrieved:
-            if expected == src or expected in src or Path(src).name == expected:
-                return True
-    return False
+    return any(
+        _source_match(expected, src) for expected in relevant_sources for src in retrieved
+    )
+
+
+def citation_precision(result: AnswerWithSources) -> float:
+    """Share of [n] markers that point at a real retrieved chunk."""
+    if not result.citations:
+        return 0.0
+    n = len(result.chunks)
+    valid = sum(1 for i in result.citations if 1 <= i <= n)
+    return valid / len(result.citations)
+
+
+def citation_source_hit(result: AnswerWithSources, relevant_sources: list[str]) -> bool:
+    """True if any cited chunk comes from an expected source file."""
+    if not result.citations or not result.chunks:
+        return False
+    n = len(result.chunks)
+    cited_sources = {
+        result.chunks[i - 1].source for i in result.citations if 1 <= i <= n
+    }
+    return any(
+        _source_match(expected, src)
+        for expected in relevant_sources
+        for src in cited_sources
+    )
 
 
 def run_eval(path: Path = QUESTIONS_PATH) -> int:
@@ -36,9 +61,11 @@ def run_eval(path: Path = QUESTIONS_PATH) -> int:
         return 1
 
     hits = 0
+    cite_hits = 0
     quality_scores: list[float] = []
+    cite_precision_scores: list[float] = []
 
-    print(f"{'#'}: {'question':<50} {'hit':>4} {'quality':>7}")
+    print(f"{'#':>2}  {'question':<44} {'hit':>4} {'cite':>4} {'qual':>5}")
     print("-" * 70)
 
     for i, item in enumerate(questions, start=1):
@@ -53,17 +80,29 @@ def run_eval(path: Path = QUESTIONS_PATH) -> int:
         score = judge_answer(q, expected, result.answer) if expected else 0.0
         quality_scores.append(score)
 
-        q_short = (q[:47] + "...") if len(q) > 50 else q
-        print(f"{i}: {q_short:<50} {hit!s:>4} {score:>7.2f}")
-        print(f"   answer: {result.answer[:200]}")
-        print(f"   sources: {', '.join(result.sources) or '(none)'}")
+        c_prec = citation_precision(result)
+        c_hit = citation_source_hit(result, relevant)
+        cite_precision_scores.append(c_prec)
+        cite_hits += int(c_hit)
+
+        q_short = (q[:41] + "...") if len(q) > 44 else q
+        print(f"{i:>2}  {q_short:<44} {hit!s:>4} {c_hit!s:>4} {score:>5.2f}")
+        print(f"    answer: {result.answer[:200]}")
+        print(f"    sources: {', '.join(result.sources) or '(none)'}")
+        if result.citations:
+            print(f"    citations: {result.citations} (precision={c_prec:.2f})")
 
     n = len(questions)
-    hit_rate = hits / n
-    avg_quality = sum(quality_scores) / n
     print("-" * 70)
-    print(f"Retrieval hit rate: {hit_rate:.2%} ({hits}/{n})")
-    print(f"Answer quality (avg): {avg_quality:.2f}")
+    print(f"Retrieval hit rate:     {hits / n:.2%} ({hits}/{n})")
+    print(f"Citation source hit:    {cite_hits / n:.2%} ({cite_hits}/{n})")
+    print(f"Citation precision avg: {sum(cite_precision_scores) / n:.2f}")
+    print(f"Answer quality (judge): {sum(quality_scores) / n:.2f}")
+    print()
+    print(
+        "Note: judge score is noisy (same local model grading itself). "
+        "Citation metrics are deterministic."
+    )
     return 0
 
 
