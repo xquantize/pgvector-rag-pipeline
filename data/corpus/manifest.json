@@ -1,0 +1,104 @@
+[
+  {
+    "filename": "pgvector_readme.md",
+    "url": "https://raw.githubusercontent.com/pgvector/pgvector/v0.8.0/README.md",
+    "title": "pgvector README",
+    "category": "pgvector"
+  },
+  {
+    "filename": "postgres_indexes_intro.md",
+    "url": "https://www.postgresql.org/docs/16/indexes-intro.html",
+    "title": "PostgreSQL Index Introduction",
+    "category": "indexes"
+  },
+  {
+    "filename": "postgres_indexes_types.md",
+    "url": "https://www.postgresql.org/docs/16/indexes-types.html",
+    "title": "PostgreSQL Index Types",
+    "category": "indexes"
+  },
+  {
+    "filename": "postgres_indexes_multicolumn.md",
+    "url": "https://www.postgresql.org/docs/16/indexes-multicolumn.html",
+    "title": "PostgreSQL Multicolumn Indexes",
+    "category": "indexes"
+  },
+  {
+    "filename": "postgres_textsearch_intro.md",
+    "url": "https://www.postgresql.org/docs/16/textsearch-intro.html",
+    "title": "PostgreSQL Full Text Search Intro",
+    "category": "textsearch"
+  },
+  {
+    "filename": "postgres_textsearch_controls.md",
+    "url": "https://www.postgresql.org/docs/16/textsearch-controls.html",
+    "title": "PostgreSQL Text Search Controls",
+    "category": "textsearch"
+  },
+  {
+    "filename": "postgres_textsearch_indexes.md",
+    "url": "https://www.postgresql.org/docs/16/textsearch-indexes.html",
+    "title": "PostgreSQL Text Search Indexes",
+    "category": "textsearch"
+  },
+  {
+    "filename": "postgres_datatype_json.md",
+    "url": "https://www.postgresql.org/docs/16/datatype-json.html",
+    "title": "PostgreSQL JSON Types",
+    "category": "json"
+  },
+  {
+    "filename": "postgres_functions_json.md",
+    "url": "https://www.postgresql.org/docs/16/functions-json.html",
+    "title": "PostgreSQL JSON Functions",
+    "category": "json"
+  },
+  {
+    "filename": "postgres_using_explain.md",
+    "url": "https://www.postgresql.org/docs/16/using-explain.html",
+    "title": "PostgreSQL Using EXPLAIN",
+    "category": "performance"
+  },
+  {
+    "filename": "postgres_populate.md",
+    "url": "https://www.postgresql.org/docs/16/populate.html",
+    "title": "PostgreSQL Populating a Database",
+    "category": "performance"
+  },
+  {
+    "filename": "postgres_ddl_constraints.md",
+    "url": "https://www.postgresql.org/docs/16/ddl-constraints.html",
+    "title": "PostgreSQL Constraints",
+    "category": "ddl"
+  },
+  {
+    "filename": "postgres_queries_table_expressions.md",
+    "url": "https://www.postgresql.org/docs/16/queries-table-expressions.html",
+    "title": "PostgreSQL Table Expressions",
+    "category": "queries"
+  },
+  {
+    "filename": "postgres_sql_select.md",
+    "url": "https://www.postgresql.org/docs/16/sql-select.html",
+    "title": "PostgreSQL SELECT",
+    "category": "queries"
+  },
+  {
+    "filename": "postgres_datatype_numeric.md",
+    "url": "https://www.postgresql.org/docs/16/datatype-numeric.html",
+    "title": "PostgreSQL Numeric Types",
+    "category": "types"
+  },
+  {
+    "filename": "postgres_transaction_iso.md",
+    "url": "https://www.postgresql.org/docs/16/transaction-iso.html",
+    "title": "PostgreSQL Transaction Isolation",
+    "category": "mvcc"
+  },
+  {
+    "filename": "postgres_explicit_locking.md",
+    "url": "https://www.postgresql.org/docs/16/explicit-locking.html",
+    "title": "PostgreSQL Explicit Locking",
+    "category": "mvcc"
+  }
+]
