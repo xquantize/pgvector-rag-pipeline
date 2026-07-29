@@ -40,37 +40,21 @@ eval-retrieval: ## fast retrieval-only eval (no chat/judge calls)
 eval-compare: ## diff two runs: make eval-compare BASE=old.json CANDIDATE=new.json
 	@if [ -z "$(BASE)" ] || [ -z "$(CANDIDATE)" ]; then \
 		echo "Usage: make eval-compare BASE=path/to/old.json CANDIDATE=path/to/new.json"; \
-		echo ""; \
-		reports=$$(/bin/ls -1t eval/results/*.json 2>/dev/null); \
-		if [ -z "$$reports" ]; then \
-			echo "No runs found yet — run 'make eval-retrieval' first."; \
-		else \
-			echo "Two most recent runs (oldest as BASE):"; \
-			echo "  make eval-compare \\"; \
-			echo "    BASE=$$(echo "$$reports" | sed -n 2p) \\"; \
-			echo "    CANDIDATE=$$(echo "$$reports" | sed -n 1p)"; \
-		fi; \
+		echo "Or compare the newest two with: make eval-compare-latest"; \
 		exit 2; \
 	fi
 	PYTHONPATH=src python -m eval.compare "$(BASE)" "$(CANDIDATE)"
 
 eval-compare-latest: ## diff the two most recent runs automatically
-	@reports=$$(/bin/ls -1t eval/results/*.json 2>/dev/null); \
-	count=$$(echo "$$reports" | grep -c . ); \
-	if [ "$$count" -lt 2 ]; then \
-		echo "Need two runs to compare (found $$count) — run 'make eval-retrieval'."; \
-		exit 2; \
-	fi; \
-	PYTHONPATH=src python -m eval.compare \
-		"$$(echo "$$reports" | sed -n 2p)" "$$(echo "$$reports" | sed -n 1p)"
+	@PYTHONPATH=src python -m eval.compare --latest
 
 test:       ## run unit tests
-	pytest
+	python -m pytest
 
 fmt:        ## format & lint
-	ruff format . && ruff check --fix .
+	python -m ruff format . && python -m ruff check --fix .
 
 check:      ## run the same quality checks as CI
-	ruff format --check .
-	ruff check .
-	pytest
+	python -m ruff format --check .
+	python -m ruff check .
+	python -m pytest

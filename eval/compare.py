@@ -13,8 +13,10 @@ from typing import Any
 
 from eval.comparison import CompareError, ComparisonReport, compare_reports
 
+DEFAULT_RESULTS_DIR = Path(__file__).resolve().parent / "results"
 
-def load_report(path: Path, *, label: str) -> dict[str, Any]:
+
+def load_report(path: Path, *, label: str) -> Any:
     try:
         text = path.read_text(encoding="utf-8")
     except OSError as exc:
@@ -25,6 +27,16 @@ def load_report(path: Path, *, label: str) -> dict[str, Any]:
         raise CompareError(f"{label} report {path} is not valid JSON: {exc}") from exc
 
 
+def latest_report_paths(directory: Path) -> tuple[Path, Path]:
+    """Return the previous and latest report using timestamped filenames."""
+    reports = sorted(directory.glob("eval-*.json"))
+    if len(reports) < 2:
+        raise CompareError(
+            f"need two reports in {directory} (found {len(reports)}); run 'make eval-retrieval'"
+        )
+    return reports[-2], reports[-1]
+
+
 def _shorten(question: str, width: int = 52) -> str:
     return question if len(question) <= width else question[: width - 3] + "..."
 
@@ -33,10 +45,25 @@ def _rank_label(rank: int | None) -> str:
     return "miss" if rank is None else str(rank)
 
 
+def _revision_label(revision: str | None) -> str:
+    if not revision:
+        return ""
+    dirty = revision.endswith("-dirty")
+    clean = revision.removesuffix("-dirty")
+    short = clean if len(clean) <= 18 else clean[:12]
+    return f", code {short}{'-dirty' if dirty else ''}"
+
+
 def format_comparison(comparison: ComparisonReport) -> str:
     lines = [
-        f"Baseline:  {comparison.baseline_run_id} ({comparison.mode})",
-        f"Candidate: {comparison.candidate_run_id} ({comparison.mode})",
+        (
+            f"Baseline:  {comparison.baseline_run_id} "
+            f"({comparison.mode}{_revision_label(comparison.baseline_revision)})"
+        ),
+        (
+            f"Candidate: {comparison.candidate_run_id} "
+            f"({comparison.mode}{_revision_label(comparison.candidate_revision)})"
+        ),
         "",
     ]
 
@@ -73,30 +100,42 @@ def format_comparison(comparison: ComparisonReport) -> str:
         lines.append("")
 
     lines.append(f"Unchanged: {len(comparison.unchanged)}")
-    if comparison.incomparable:
-        lines.append(f"Not in both runs: {len(comparison.incomparable)}")
-        for change in comparison.incomparable:
-            lines.append(f"  {_shorten(change.question)}")
 
     return "\n".join(lines)
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("baseline", type=Path, help="Baseline eval report JSON")
-    parser.add_argument("candidate", type=Path, help="Candidate eval report JSON")
+    parser.add_argument("baseline", nargs="?", type=Path, help="Baseline eval report JSON")
+    parser.add_argument("candidate", nargs="?", type=Path, help="Candidate eval report JSON")
     parser.add_argument(
-        "--allow-mode-mismatch",
+        "--latest",
         action="store_true",
-        help="Compare a retrieval-only run against a full run",
+        help="Compare the two latest reports",
+    )
+    parser.add_argument(
+        "--results-dir",
+        type=Path,
+        default=DEFAULT_RESULTS_DIR,
+        help=argparse.SUPPRESS,
     )
     args = parser.parse_args(argv)
 
     try:
+        if args.latest:
+            if args.baseline is not None or args.candidate is not None:
+                raise CompareError("--latest cannot be combined with report paths")
+            baseline_path, candidate_path = latest_report_paths(args.results_dir)
+        elif args.baseline is None or args.candidate is None:
+            raise CompareError(
+                "provide BASE and CANDIDATE reports, or use 'make eval-compare-latest'"
+            )
+        else:
+            baseline_path, candidate_path = args.baseline, args.candidate
+
         comparison = compare_reports(
-            load_report(args.baseline, label="baseline"),
-            load_report(args.candidate, label="candidate"),
-            require_same_mode=not args.allow_mode_mismatch,
+            load_report(baseline_path, label="baseline"),
+            load_report(candidate_path, label="candidate"),
         )
     except CompareError as exc:
         print(f"compare failed: {exc}", file=sys.stderr)

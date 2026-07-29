@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from eval.compare import format_comparison, load_report, main
+from eval.compare import format_comparison, latest_report_paths, load_report, main
 from eval.comparison import CompareError, compare_reports
 
 
@@ -12,6 +12,7 @@ def _report(run_id: str, ranks: dict[str, int | None], **summary) -> dict:
     return {
         "schema_version": 1,
         "run_id": run_id,
+        "code_revision": f"{run_id}-revision",
         "mode": "retrieval_only",
         "questions_sha256": "abc123",
         "config": {"top_k": 5, "retrieval_mode": "hybrid"},
@@ -41,15 +42,34 @@ def test_load_report_invalid_json(tmp_path):
         load_report(path, label="candidate")
 
 
+def test_latest_report_paths_uses_timestamped_names(tmp_path):
+    oldest = _write(tmp_path, "eval-20260101T000000000Z.json", {})
+    previous = _write(tmp_path, "eval-20260102T000000000Z.json", {})
+    latest = _write(tmp_path, "eval-20260103T000000000Z.json", {})
+    _write(tmp_path, "unrelated.json", {})
+
+    assert latest_report_paths(tmp_path) == (previous, latest)
+    assert oldest not in latest_report_paths(tmp_path)
+
+
+def test_latest_report_paths_requires_two_reports(tmp_path):
+    _write(tmp_path, "eval-20260101T000000000Z.json", {})
+    with pytest.raises(CompareError, match="need two reports"):
+        latest_report_paths(tmp_path)
+
+
 def test_format_comparison_reports_changes():
+    baseline = _report("base", {"Q improved": 3, "Q same": 1}, precision_at_1=0.5)
+    baseline["code_revision"] = f"{'a' * 40}-dirty"
     comparison = compare_reports(
-        _report("base", {"Q improved": 3, "Q same": 1}, precision_at_1=0.5),
+        baseline,
         _report("cand", {"Q improved": 1, "Q same": 1}, precision_at_1=1.0),
     )
     output = format_comparison(comparison)
 
     assert "Baseline:  base" in output
     assert "Candidate: cand" in output
+    assert "aaaaaaaaaaaa-dirty" in output
     assert "precision_at_1" in output
     assert "+0.500" in output
     assert "Improved (1)" in output
@@ -76,6 +96,19 @@ def test_main_returns_zero_for_comparable_runs(tmp_path, capsys):
 
     assert exit_code == 0
     assert "Improved (1)" in capsys.readouterr().out
+
+
+def test_main_latest_compares_newest_two_runs(tmp_path, capsys):
+    _write(tmp_path, "eval-20260101T000000000Z.json", _report("old", {"Q": 3}))
+    _write(tmp_path, "eval-20260102T000000000Z.json", _report("base", {"Q": 2}))
+    _write(tmp_path, "eval-20260103T000000000Z.json", _report("cand", {"Q": 1}))
+
+    exit_code = main(["--latest", "--results-dir", str(tmp_path)])
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert "Baseline:  base" in output
+    assert "Candidate: cand" in output
 
 
 def test_main_returns_one_on_mismatched_question_sets(tmp_path, capsys):
