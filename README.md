@@ -75,11 +75,17 @@ Postgres + pgvector (HNSW) + generated `tsvector` for hybrid retrieval, Ollama
 
 ## Results
 
-Retrieval (`hybrid`, `nomic-embed-text`, top-5):
+Retrieval A/B (`nomic-embed-text`, top-5, 20 questions):
 
-| Hit rate@5 | Precision@1 | MRR | nDCG@5 |
-| ---------- | ----------- | --- | ------ |
-| 100% | 80% | 0.900 | 0.926 |
+| Mode | Hit rate@5 | Precision@1 | MRR | nDCG@5 |
+| ---- | ---------- | ----------- | --- | ------ |
+| Vector-only | 100% | 80% | 0.900 | 0.926 |
+| Hybrid (vector + FTS RRF) | 100% | 80% | 0.900 | 0.926 |
+
+Hybrid moved the BRIN question from rank 2 to 1, moved the multicolumn-index
+question from rank 1 to 2, and left the other 18 questions unchanged. It
+therefore provides no aggregate retrieval gain over vector-only on the current
+corpus and question set.
 
 Generation:
 
@@ -111,6 +117,7 @@ and per-question rankings.
 
 ```bash
 make eval-retrieval                         # quick retrieval iteration
+make eval-ab                                # vector vs hybrid, then compare
 make eval                                   # full generation + judge run
 python -m eval.evaluate --k 10              # try another top-k
 python -m eval.evaluate --no-artifacts      # print only
@@ -135,5 +142,4 @@ the questions whose first relevant source moved up or down the ranking.
 
 - Metadata filters (category) at query time
 - Reranking top-k before generation
-- Vector-only vs hybrid A/B in the Results table
 - Tighten expected answers where the judge is being harsh on good replies
