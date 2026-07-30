@@ -15,7 +15,7 @@ via `sentence-transformers`.
 ## Architecture
 
 - **Ingestion** — load docs → chunk → embed → upsert into pgvector (idempotent).
-- **Query** — embed question → hybrid search (vector + FTS RRF in SQL) → LLM answer.
+- **Query** — embed question → vector search (or hybrid vector + FTS RRF) → LLM answer.
 - **Eval** — fixed grounded Q/A set → retrieval hits, citation checks, LLM judge.
 
 ## Corpus
@@ -69,7 +69,7 @@ EMBEDDING_DIM=768
 
 ## Tech
 
-Postgres + pgvector (HNSW) + generated `tsvector` for hybrid retrieval, Ollama
+Postgres + pgvector (HNSW) + generated `tsvector` for optional hybrid retrieval, Ollama
 (or local HF) embeddings, Ollama chat for generation and LLM-as-judge. Python
 3.11+, packaged with `pyproject.toml`.
 
@@ -86,6 +86,12 @@ Hybrid moved the BRIN question from rank 2 to 1, moved the multicolumn-index
 question from rank 1 to 2, and left the other 18 questions unchanged. It
 therefore provides no aggregate retrieval gain over vector-only on the current
 corpus and question set.
+
+`vector` is the default on that evidence, since the fused two-scan query costs
+more than the single ANN scan and buys nothing measurable here. Hybrid stays
+fully supported via `RETRIEVAL_MODE=hybrid` — its one win was a question with a
+distinctive literal token (`BRIN`), which is exactly where lexical matching
+should help, so this is worth re-running as the corpus grows.
 
 Generation:
 

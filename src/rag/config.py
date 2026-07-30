@@ -33,8 +33,9 @@ class Settings(BaseSettings):
     chunk_overlap: int = 100
     top_k: int = 5
     embedding_dim: int = 768
-    # vector = ANN only; hybrid = ANN + Postgres FTS fused with RRF in SQL
-    retrieval_mode: Literal["vector", "hybrid"] = "hybrid"
+    # vector = ANN only; hybrid = ANN + Postgres FTS fused with RRF in SQL.
+    # Defaults to vector: the A/B showed no aggregate gain from hybrid on this corpus.
+    retrieval_mode: Literal["vector", "hybrid"] = "vector"
 
     # Generation (grounded / low-temp is the usual production default for FAQ RAG)
     llm_temperature: float = 0.1
