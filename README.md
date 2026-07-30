@@ -73,6 +73,10 @@ Postgres + pgvector (HNSW) + generated `tsvector` for optional hybrid retrieval,
 (or local HF) embeddings, Ollama chat for generation and LLM-as-judge. Python
 3.11+, packaged with `pyproject.toml`.
 
+Test suite: **53 passing tests**, including 5 real-Postgres integration tests
+covering schema setup, generated full-text vectors, JSONB metadata, stored file
+hashes, and idempotent upserts. Integration tests skip when Postgres is unavailable.
+
 ## Results
 
 Retrieval A/B (`nomic-embed-text`, top-5, 20 questions):

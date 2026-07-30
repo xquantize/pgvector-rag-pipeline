@@ -64,3 +64,18 @@ def test_source_file_hash_reads_back_the_stored_hash(empty_index):
 
     assert db.source_file_hash("docs/guide.md") == "file-1"
     assert db.source_file_hash("docs/missing.md") is None
+
+
+def test_upsert_is_idempotent_and_reports_actual_writes(empty_index):
+    db = empty_index
+    original = _row("docs/guide.md", 0, "Original content.", content_hash="h0")
+
+    assert db.upsert_chunks([original]) == 1
+    assert db.upsert_chunks([original]) == 0
+
+    changed = _row("docs/guide.md", 0, "Updated content.", content_hash="h1")
+    assert db.upsert_chunks([changed]) == 1
+
+    with db.get_connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT content, content_hash FROM documents")
+        assert cur.fetchall() == [("Updated content.", "h1")]

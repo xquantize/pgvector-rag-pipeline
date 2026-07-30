@@ -54,7 +54,7 @@ def delete_stale_chunks(source: str, keep_count: int) -> None:
 
 
 def upsert_chunks(rows: list[dict[str, Any]]) -> int:
-    """Idempotent upsert on (source, chunk_index). Skips embed-identical rows via hash."""
+    """Upsert chunks and return how many rows were inserted or changed."""
     if not rows:
         return 0
 
@@ -84,8 +84,9 @@ def upsert_chunks(rows: list[dict[str, Any]]) -> int:
     ]
     with get_connection() as conn, conn.cursor() as cur:
         cur.executemany(sql, prepared)
+        written = cur.rowcount
         conn.commit()
-    return len(prepared)
+    return written
 
 
 def search(
